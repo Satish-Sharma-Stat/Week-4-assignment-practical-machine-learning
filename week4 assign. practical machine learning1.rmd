@@ -1,0 +1,168 @@
+---
+title: "Prediction From Exercise Data "
+author: "scs"
+date: "23/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Background
+(As given in the assignment for the course of practical machine learning)
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. . More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+## Goal of the project
+The goal of this project is to use the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and to predict the manner in which they did the exercise.They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+The "classe" variable in the training set shows how the participants performed different tasks. 
+
+The report describes how the model is built and which model is the best one and why. The final prediction model is used to predict 20 different test cases.
+
+## Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+Here in this project the data is downloaded to working directory and then read it in the R studio. It may be used directly by reading it from url.
+
+```{r}
+setwd("C:/Users/hp/desktop/coursera")
+library(caret)
+library(randomForest)
+library(rattle)
+library(forecast)
+library(rpart)
+library(rpart.plot)
+library(gbm)
+```
+# to bring data in R study
+```{r}
+data1<-read.csv("./pml-training.csv")
+data2<-read.csv("./pml-testing.csv")
+dim(data1)
+dim(data2)
+```
+#DATA CLEANING
+
+### To clean the pml-training data i.e data1 as per our problem:
+
+-First of all data1(pml-training) is cleaned as per the requirement of our study.
+The vaiables from 1:7 are removed as they are not observations of the experiment and will not effect our prediction.
+
+-Secondly the variables with near zero variance will be removed as these will not 
+effect the prediction.
+
+-lastly the variables with NA wil be removed as their significance for our prediction is negligible
+
+```{r}
+data1<-data1[,-(1:7)] # To remove first 7 variable 
+n_z_v<-nearZeroVar(data1) # To remove the variable which have near zero variance 
+data1<-data1[,-n_z_v]
+na_var<-function(x)mean(is.na(x))# To remove the variables with NA
+v_na<-sapply(data1,na_var)
+data1<-data1[,-v_na==FALSE]
+dim(data1)
+
+```
+### To clean the pml-testing data i.e data2 as per our problem:
+
+-First of all data2(pml-testing) is cleaned as per the requirement of our study.
+The vaiables from 1:7 are removed as they are not observation of the 
+experiment.
+
+-Secondly the variables with near zero variance will be removed as these will not 
+effect the prediction.
+
+-lastly the variables with NA wil be removed as their significance for our prediction is negligible
+
+```{r}
+data2<-data2[,-(1:7)] # To remove first 7 variable 
+n_z_v1<-nearZeroVar(data2) # To remove the variable which have near zero variance 
+data2<-data2[,-n_z_v1]
+na_var<-function(x)mean(is.na(x))# To remove the variables with NA
+v_na<-sapply(data1,na_var)
+data2<-data2[,-v_na==FALSE]
+dim(data2)
+
+```
+
+# To create data partition of data1 for  training data and testing data 
+
+```{r}
+inTrain<-createDataPartition(data1$classe,p=.7,list=FALSE)
+data_train<-data1[inTrain,]
+data_test<-data1[-inTrain,]
+dim(data_train)
+dim(data_test)
+```
+# To fit the prediction model for different machine learning algorithms
+
+### Linear Discriminant analysis
+
+```{r}
+library(lda)
+fit_lda<-train(classe~.,data_train,method="lda")
+pred_lda<-predict(fit_lda,newdata = data_test)
+cm_lda<-confusionMatrix(pred_lda,data_test$classe)
+cm_lda
+```
+### Decision Tree algrithm
+
+```{r}
+fit_dt<-train(classe~.,data_train,method="rpart") # Decision tree
+fancyRpartPlot(fit_dt$finalModel)
+# prediction
+pred_dt<-predict(fit_dt,newdata = data_test)
+cm_dt<-confusionMatrix(pred_dt,data_test$classe)
+cm_dt
+```
+### Random Forest
+
+```{r}
+fit_rf<-train(classe~.,data_train,method="rf",ntree=100)
+fit_rf
+pred_rf<-predict(fit_rf,newdata=data_test)
+cm_rf<-confusionMatrix(pred_rf,data_test$classe)
+cm_rf
+
+```
+
+```{r}
+plot(cm_rf$table,col=cm_rf$byClass,main="Random Forest Accuracy")
+qplot(pred_rf,data=data_test,main="Random Forest Plot")
+```
+# Gradient boosting model and prediction
+
+```{r}
+fit_gbm<-train(classe~.,data=data_train,method="gbm",verbose=FALSE)
+fit_gbm
+pred_gbm<-predict(fit_gbm,newdata=data_test)
+cm_gbm<-confusionMatrix(pred_gbm,data_test$classe)
+cm_gbm
+```
+
+# Most suitable method 
+
+-The accuracy of Decision Tree method is .49 which is not acceptable.So the method is not suitable for the present study.
+
+-The accuracy of linear discriminant method is .70 which is better than decision tree approach but not acceptable.
+
+-The accuracy of gradient boosting method is .95 and is better than linear discriminant approach. It may be accepted.
+
+-The accuracy of random forest method is .99 so the method of random forest is most suitable one.
+#### Thus the most suitable method is random forest.
+
+# To use the final prediction method (random forest) for data2 (pml-testing) 
+```{r}
+T_pred_rf<-predict(fit_rf,newdata=data2)
+T_pred_rf
+```
+
